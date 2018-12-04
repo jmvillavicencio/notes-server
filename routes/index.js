@@ -5,7 +5,7 @@ const router = express.Router();
 
 router.get('/notes', (req, res) => {
   dba.all(`
-    SELECT id, title, body, created
+    SELECT id, title, body, created, updated
     FROM Notes
     ORDER BY id DESC
   `, (err, notes) => {
@@ -26,27 +26,28 @@ router.post('/notes', (req, res) => {
   const {
     title,
     body,
-    created,
   } = req.body;
 
-  if (!title || !body || !created) {
-    return res.status(400).json({ err: 'missing data' });
+  if (!title || !body) {
+    res.status(400).json({ err: 'missing data' });
+    return;
   }
-
+  const created = new Date().getTime();
   dba.run(`
-    INSERT INTO notes(title, body, created)
-    VALUES (?, ?, ?);
-  `, [title, body, created], function resp(err) {
+    INSERT INTO notes(title, body, created, updated)
+    VALUES (?, ?, ?, ?);
+  `, [title, body, created, created], function resp(err) {
     if (err) {
       const stringerr = typeof err === 'string' ? err : JSON.stringify(err);
 
-      return res.status(500).json({
+      res.status(500).json({
         msg: 'Error adding note',
         dirtyError: stringerr,
       });
+      return;
     }
 
-    return res.json({
+    res.json({
       id: this.lastID,
     });
   });
@@ -61,13 +62,15 @@ router.put('/notes/:id', (req, res) => {
   if (!title || !body) {
     return res.status(400).json({ err: 'missing data' });
   }
+  const updated = new Date().getTime();
 
   return dba.run(`
     UPDATE notes
     SET title = ?,
-        body = ?
+        body = ?,
+        updated= ?
     WHERE id = ?
-  `, [title, body, id], (err) => {
+  `, [title, body, updated, id], (err) => {
     if (err) {
       const stringerr = typeof err === 'string' ? err : JSON.stringify(err);
       return res.status(400).json({
